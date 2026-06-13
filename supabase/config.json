@@ -1,0 +1,50 @@
+{
+  "id": "mindbridge",
+  "project_id": "your-supabase-project-id",
+  "db": {
+    "port": 5432,
+    "shadow_port": 5433,
+    "major_version": 15
+  },
+  "api": {
+    "port": 54321,
+    "schemas": ["public"],
+    "extra_search_path": ["public", "extensions"],
+    "max_rows": 1000
+  },
+  "auth": {
+    "site_url": "http://localhost:3000",
+    "additional_redirect_urls": [
+      "http://localhost:3000/**",
+      "https://your-production-domain.com/**"
+    ],
+    "jwt_expiry": 3600,
+    "enable_signup": true,
+    "email": {
+      "enable_signup": true,
+      "double_confirm_changes": false,
+      "enable_confirmations": false
+    },
+    "external": {
+      "google": {
+        "enabled": false,
+        "client_id": "env(GOOGLE_CLIENT_ID)",
+        "secret": "env(GOOGLE_CLIENT_SECRET)"
+      }
+    }
+  },
+  "storage": {
+    "buckets": {
+      "avatars": {
+        "public": true,
+        "file_size_limit": "5MB",
+        "allowed_mime_types": ["image/png", "image/jpeg", "image/webp"]
+      },
+      "therapist-photos": {
+        "public": true,
+        "file_size_limit": "5MB",
+        "allowed_mime_types": ["image/png", "image/jpeg", "image/webp"]
+      }
+    }
+  }
+}
