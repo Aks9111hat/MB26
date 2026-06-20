@@ -1,26 +1,35 @@
 import { createClient } from '@/lib/supabase/server';
 import type { AssessmentOutput } from '@/types';
+import type { DbCheckIn, DbCheckInMessage } from '@/lib/supabase/types';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function db(): Promise<any> {
+    return createClient();
+}
 
 export async function createCheckIn(user_id: string): Promise<string> {
-    const supabase = await createClient();
-
+    const supabase = await db();
     const { data, error } = await supabase
         .from('checkins')
         .insert({
             user_id,
             is_complete: false,
             safety_flag: false,
+            social_isolation: false,
+            self_efficacy_low: false,
+            safety_acknowledged: false,
+            rec_tags: [],
+            assessment_metadata: {},
         })
         .select('id')
         .single();
 
     if (error) throw new Error(`Failed to create check-in: ${error.message}`);
-    return data.id;
+    return (data as { id: string }).id;
 }
 
-export async function getCheckInHistory(checkin_id: string) {
-    const supabase = await createClient();
-
+export async function getCheckInHistory(checkin_id: string): Promise<DbCheckInMessage[]> {
+    const supabase = await db();
     const { data, error } = await supabase
         .from('checkin_messages')
         .select('*')
@@ -28,7 +37,7 @@ export async function getCheckInHistory(checkin_id: string) {
         .order('sequence_number', { ascending: true });
 
     if (error) throw new Error(`Failed to fetch check-in history: ${error.message}`);
-    return data ?? [];
+    return (data as DbCheckInMessage[]) ?? [];
 }
 
 export async function saveMessage({
@@ -43,16 +52,18 @@ export async function saveMessage({
     role: 'user' | 'assistant';
     content: string;
     sequence_number: number;
-}) {
-    const supabase = await createClient();
-
-    const { error } = await supabase.from('checkin_messages').insert({
-        checkin_id,
-        user_id,
-        role,
-        content,
-        sequence_number,
-    });
+}): Promise<void> {
+    const supabase = await db();
+    const { error } = await supabase
+        .from('checkin_messages')
+        .insert({
+            checkin_id,
+            user_id,
+            role,
+            content,
+            sequence_number,
+            contains_safety_signal: false,
+        });
 
     if (error) throw new Error(`Failed to save message: ${error.message}`);
 }
@@ -60,23 +71,23 @@ export async function saveMessage({
 export async function completeCheckIn(
     checkin_id: string,
     assessment: AssessmentOutput
-) {
-    const supabase = await createClient();
-
+): Promise<void> {
+    const supabase = await db();
     const { error } = await supabase
         .from('checkins')
         .update({
             is_complete: true,
+            completed_at: new Date().toISOString(),
             tier: assessment.tier,
             total_score: assessment.total_score,
-            sleep_score: assessment.sleep_score,
-            energy_score: assessment.energy_score,
-            stress_score: assessment.stress_score,
-            social_score: assessment.social_score,
-            wins_score: assessment.wins_score,
-            worry_score: assessment.worry_score,
-            coping_score: assessment.coping_score,
-            intention_score: assessment.intention_score,
+            score_sleep: assessment.sleep_score,
+            score_energy: assessment.energy_score,
+            score_stress: assessment.stress_score,
+            score_social: assessment.social_score,
+            score_wins: assessment.wins_score,
+            score_worry: assessment.worry_score,
+            score_coping: assessment.coping_score,
+            score_intention: assessment.intention_score,
             rec_tags: assessment.rec_tags,
             safety_flag: assessment.safety_flag,
             snapshot_text: assessment.snapshot_text,
@@ -87,9 +98,8 @@ export async function completeCheckIn(
     if (error) throw new Error(`Failed to complete check-in: ${error.message}`);
 }
 
-export async function getCheckIn(checkin_id: string) {
-    const supabase = await createClient();
-
+export async function getCheckIn(checkin_id: string): Promise<DbCheckIn | null> {
+    const supabase = await db();
     const { data, error } = await supabase
         .from('checkins')
         .select('*')
@@ -97,5 +107,5 @@ export async function getCheckIn(checkin_id: string) {
         .single();
 
     if (error) throw new Error(`Failed to fetch check-in: ${error.message}`);
-    return data;
+    return data as DbCheckIn;
 }

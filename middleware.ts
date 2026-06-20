@@ -57,15 +57,29 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Admin routes ---
+  // const isAdminRoute = ADMIN_ROUTES.some(r => pathname.startsWith(r))
+  // if (isAdminRoute) {
+  //   if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))
+  //   const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').filter(Boolean)
+  //   if (!adminIds.includes(user.id)) {
+  //     return NextResponse.redirect(new URL('/dashboard', request.url))
+  //   }
+  // }
+  // --- Admin routes ---
   const isAdminRoute = ADMIN_ROUTES.some(r => pathname.startsWith(r))
   if (isAdminRoute) {
     if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))
-    const adminIds = (process.env.ADMIN_USER_IDS ?? '').split(',').filter(Boolean)
-    if (!adminIds.includes(user.id)) {
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || profile.role !== 'admin') {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
-
   return supabaseResponse
 }
 

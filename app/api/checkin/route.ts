@@ -6,10 +6,14 @@ import { parseAssessmentJSON, validateAndMergeScores, ruleBasedScore } from '@/l
 import { saveMessage, completeCheckIn } from '@/lib/ai/session';
 import type { ChatMessage } from '@/lib/ai/groq';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function db(): Promise<any> {
+    return createClient();
+}
+
 export async function POST(req: NextRequest) {
     try {
-        // Auth check
-        const supabase = await createClient();
+        const supabase = await db();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -26,7 +30,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
-        // Verify checkin belongs to this user
         const { data: checkin, error: checkinError } = await supabase
             .from('checkins')
             .select('id, user_id, is_complete')
@@ -41,7 +44,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Check-in already completed' }, { status: 400 });
         }
 
-        // Save the latest user message (last in the array)
         const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
         const existingMessages = messages.filter((m) => m.role !== 'system');
         const userMessageIndex = existingMessages.filter((m) => m.role === 'user').length;
@@ -52,20 +54,16 @@ export async function POST(req: NextRequest) {
                 user_id,
                 role: 'user',
                 content: lastUserMessage.content,
-                sequence_number: (userMessageIndex - 1) * 2, // user messages at even positions
+                sequence_number: (userMessageIndex - 1) * 2,
             });
         }
 
-        // Build messages array with system prompt
         const fullMessages: ChatMessage[] = [
             { role: 'system', content: CHECKIN_SYSTEM_PROMPT },
             ...messages,
         ];
 
-        // Stream from Groq
         const stream = await streamChat(fullMessages);
-
-        // Create a ReadableStream to pipe the response
         let fullResponse = '';
 
         const readable = new ReadableStream({
@@ -79,19 +77,12 @@ export async function POST(req: NextRequest) {
                         }
                     }
 
-                    // After streaming completes, handle assessment parsing
                     const assessment = parseAssessmentJSON(fullResponse);
 
                     if (assessment?.is_complete) {
-                        // Build full conversation text for rule-based cross-check
-                        const conversationText = messages
-                            .map((m) => m.content)
-                            .join(' ');
-
-                        // Validate and merge AI + rule-based scores
+                        const conversationText = messages.map((m) => m.content).join(' ');
                         const finalAssessment = validateAndMergeScores(assessment, conversationText);
 
-                        // Save assistant message (strip the JSON block for display)
                         const displayContent = fullResponse
                             .replace(/<assessment>[\s\S]*?<\/assessment>/, '')
                             .trim();
@@ -104,14 +95,14 @@ export async function POST(req: NextRequest) {
                             sequence_number: userMessageIndex * 2 + 1,
                         });
 
-                        // Complete the check-in in DB
                         await completeCheckIn(checkin_id, finalAssessment);
 
-                        // Send a final signal to the client
-                        const completionSignal = `\n<CHECKIN_COMPLETE>${checkin_id}</CHECKIN_COMPLETE>`;
-                        controller.enqueue(new TextEncoder().encode(completionSignal));
+                        controller.enqueue(
+                            new TextEncoder().encode(
+                                `\n<CHECKIN_COMPLETE>${checkin_id}</CHECKIN_COMPLETE>`
+                            )
+                        );
                     } else {
-                        // Regular assistant turn — save to DB
                         await saveMessage({
                             checkin_id,
                             user_id,
@@ -120,11 +111,11 @@ export async function POST(req: NextRequest) {
                             sequence_number: userMessageIndex * 2 + 1,
                         });
 
-                        // Check for safety flag even in non-complete turns
                         const conversationText = messages.map((m) => m.content).join(' ');
                         const { safety_flag } = ruleBasedScore(conversationText);
                         if (safety_flag) {
-                            await supabase
+                            const supabase2 = await db();
+                            await supabase2
                                 .from('checkins')
                                 .update({ safety_flag: true })
                                 .eq('id', checkin_id);
@@ -148,16 +139,13 @@ export async function POST(req: NextRequest) {
         });
     } catch (error) {
         console.error('Check-in API error:', error);
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }
 
 export async function GET(req: NextRequest) {
     try {
-        const supabase = await createClient();
+        const supabase = await db();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

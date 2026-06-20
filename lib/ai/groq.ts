@@ -17,7 +17,7 @@ export async function streamChat(messages: ChatMessage[]) {
     const stream = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages,
-        max_tokens: 1024,
+        max_tokens: 2048,
         temperature: 0.7,
         stream: true,
     });
@@ -29,7 +29,7 @@ export async function chat(messages: ChatMessage[]): Promise<string> {
     const response = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
         messages,
-        max_tokens: 1024,
+        max_tokens: 2048,
         temperature: 0.7,
         stream: false,
     });
