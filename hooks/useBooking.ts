@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export type BookingStep = 1 | 2 | 3;
 
@@ -74,8 +75,10 @@ export function useBooking() {
 
             setResult({ bookingId: data.booking_id, scheduledStart: data.scheduled_start });
             setStep(3);
+            toast.success('Booking confirmed!'); 
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
+            toast.error('Booking failed — please try again');
         } finally {
             setIsSubmitting(false);
         }

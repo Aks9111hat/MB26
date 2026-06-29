@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { DbMoodEntry } from '@/lib/supabase/types';
+import { toast } from 'sonner';
 
 const EMOJIS = ['😔', '😟', '😕', '😐', '🙂', '😊', '😄', '😁', '🤩', '🥳'];
 
@@ -48,6 +49,7 @@ export function MoodLogger({ todayMood, onLogged }: Props) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.error ?? 'Failed to log mood');
             onLogged(data.entry);
+            toast.success('Mood logged for today 🌱');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Something went wrong');
         } finally {

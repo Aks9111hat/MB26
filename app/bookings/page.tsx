@@ -25,6 +25,19 @@ export default function BookingsPage() {
             .catch(() => setLoading(false));
     }, []);
 
+    const handleProposalResponse = async (bookingId: string, accept: boolean) => {
+        const res = await fetch('/api/bookings/respond-to-proposal', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ booking_id: bookingId, accept }),
+        });
+        if (res.ok) {
+            const r = await fetch('/api/bookings');
+            const d = await r.json();
+            setBookings(d.bookings ?? []);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-0 z-10">
@@ -77,7 +90,34 @@ export default function BookingsPage() {
                                     <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[b.status] ?? 'bg-gray-100 text-gray-500'}`}>
                                         {b.status.charAt(0).toUpperCase() + b.status.slice(1)}
                                     </span>
+                                    {b.status === 'modified_pending_user' && b.proposed_start && (
+                                        <div className="mt-3 pt-3 border-t border-gray-50 space-y-2">
+                                            <p className="text-xs text-blue-600 font-medium">
+                                                Therapist proposed a new time:
+                                            </p>
+                                            <p className="text-sm text-gray-800">
+                                                {new Date(b.proposed_start).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                                {' at '}
+                                                {new Date(b.proposed_start).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => handleProposalResponse(b.id, true)}
+                                                    className="flex-1 bg-teal-500 hover:bg-teal-600 text-white text-xs font-semibold rounded-lg py-2 transition-colors"
+                                                >
+                                                    Accept new time
+                                                </button>
+                                                <button
+                                                    onClick={() => handleProposalResponse(b.id, false)}
+                                                    className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold rounded-lg py-2 transition-colors"
+                                                >
+                                                    Decline
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
+
                             </div>
                         );
                     })

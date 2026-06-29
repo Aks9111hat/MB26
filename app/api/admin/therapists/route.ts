@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { verifyAdmin } from '../check/route';
+import { verifyAdmin } from '@/lib/admin/verify-admin';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function db(): Promise<any> {

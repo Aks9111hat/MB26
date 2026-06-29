@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { sendBookingNotificationToTherapist } from '@/lib/email/resend';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function db(): Promise<any> {
@@ -90,6 +91,23 @@ Mode       : ${session_mode}
 Fee        : ₹${Math.round(therapist.session_fee_inr / 100)}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     `);
+        // Notify therapist by email
+        const { data: therapistFull } = await supabase
+            .from('therapists')
+            .select('email, full_name')
+            .eq('id', therapist_id)
+            .single();
+
+        if (therapistFull?.email) {
+            await sendBookingNotificationToTherapist({
+                to: therapistFull.email,
+                therapistName: therapistFull.full_name,
+                clientName: user.email ?? 'A client',
+                date: new Date(scheduledStart).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' }),
+                time: new Date(scheduledStart).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                mode: session_mode,
+            });
+        }
 
         return NextResponse.json({
             booking_id: booking.id,

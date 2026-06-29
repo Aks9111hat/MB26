@@ -82,6 +82,32 @@ export default function AdminTherapistsPage() {
         setSubmitting(false);
     };
 
+    const [onboardingId, setOnboardingId] = useState<string | null>(null);
+    const [onboardEmail, setOnboardEmail] = useState('');
+    const [onboarding, setOnboarding] = useState(false);
+    const [onboardResult, setOnboardResult] = useState<string | null>(null);
+
+    const handleOnboard = async (therapistId: string) => {
+        if (!onboardEmail) return;
+        setOnboarding(true);
+        const res = await fetch('/api/admin/therapists/onboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ therapist_id: therapistId, email: onboardEmail }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            setOnboardResult(
+                data.emailSent
+                    ? `Welcome email sent to ${onboardEmail}`
+                    : `Email failed — temp password: ${data.tempPassword} (send manually)`
+            );
+            setOnboardingId(null);
+            setOnboardEmail('');
+        }
+        setOnboarding(false);
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -211,6 +237,12 @@ export default function AdminTherapistsPage() {
                                     </td>
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setOnboardingId(onboardingId === t.id ? null : t.id)}
+                                                className="text-xs bg-blue-900 hover:bg-blue-800 text-blue-300 px-2.5 py-1 rounded-lg transition-colors"
+                                            >
+                                                Onboard
+                                            </button>
                                             {t.verification_status !== 'verified' && (
                                                 <button
                                                     onClick={() => handleVerify(t.id, 'verified')}
@@ -242,6 +274,49 @@ export default function AdminTherapistsPage() {
                         )}
                     </tbody>
                 </table>
+
+                {onboardingId && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+                        <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 max-w-sm w-full space-y-3">
+                            <p className="text-sm font-semibold text-white">Onboard therapist</p>
+                            <p className="text-xs text-gray-400">
+                                This sends a temporary password to the therapist's email for first-time login.
+                            </p>
+                            <input
+                                type="email"
+                                value={onboardEmail}
+                                onChange={(e) => setOnboardEmail(e.target.value)}
+                                placeholder="therapist@email.com"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-teal-500"
+                            />
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleOnboard(onboardingId)}
+                                    disabled={!onboardEmail || onboarding}
+                                    className="flex-1 text-sm bg-teal-600 hover:bg-teal-700 disabled:bg-teal-900 text-white font-semibold px-4 py-2 rounded-lg transition-colors"
+                                >
+                                    {onboarding ? 'Sending...' : 'Send credentials'}
+                                </button>
+                                <button
+                                    onClick={() => { setOnboardingId(null); setOnboardEmail(''); }}
+                                    className="text-sm bg-gray-800 text-gray-400 px-4 py-2 rounded-lg"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {onboardResult && (
+                    <div className="bg-emerald-950 border border-emerald-700 rounded-xl px-4 py-3 flex items-center justify-between">
+                        <p className="text-sm text-emerald-300">{onboardResult}</p>
+                        <button onClick={() => setOnboardResult(null)} className="text-emerald-400 text-xs">
+                            Dismiss
+                        </button>
+                    </div>
+                )}
+
             </div>
         </div>
     );

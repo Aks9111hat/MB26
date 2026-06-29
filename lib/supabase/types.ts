@@ -9,7 +9,7 @@ export type Json =
 // Enums matching your actual DB
 export type CheckInTier = 'thriving' | 'managing' | 'struggling';
 export type UserTier = 'free' | 'plus' | 'corporate';
-export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
+export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'modified_pending_user';
 export type SessionModeType = 'video' | 'audio' | 'in_person' | 'chat';
 export type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'suspended';
 export type SafetyFlagType = 'self_harm' | 'suicidal_ideation' | 'harm_to_others';
@@ -60,12 +60,18 @@ export interface Database {
           role?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       therapists: {
         Row: {
           id: string;
           full_name: string;
           display_name: string | null;
+          email: string | null;
+          password_hash: string | null;
+          must_change_password: boolean;
+          last_login_at: string | null;
+          is_active: boolean;
           bio: string | null;
           profile_photo_url: string | null;
           tagline: string | null;
@@ -85,6 +91,7 @@ export interface Database {
           booking_buffer_mins: number;
           advance_booking_days: number;
           session_duration_mins: number;
+          is_taking_new_clients: boolean;
         };
         Insert: {
           id?: string;
@@ -109,6 +116,14 @@ export interface Database {
           booking_buffer_mins?: number;
           advance_booking_days?: number;
           session_duration_mins?: number;
+          email?: string | null;
+          password_hash?: string | null;
+          must_change_password?: boolean;
+          last_login_at?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          is_taking_new_clients?: boolean;
         };
         Update: {
           full_name?: string;
@@ -132,7 +147,15 @@ export interface Database {
           booking_buffer_mins?: number;
           advance_booking_days?: number;
           session_duration_mins?: number;
+          email?: string | null;
+          password_hash?: string | null;
+          must_change_password?: boolean;
+          last_login_at?: string | null;
+          is_active?: boolean;
+          updated_at?: string;
+          is_taking_new_clients?: boolean;
         };
+        Relationships: [];
       };
       checkins: {
         Row: {
@@ -227,6 +250,15 @@ export interface Database {
           assessment_metadata?: Json;
           is_complete?: boolean;
         };
+        Relationships: [
+          {
+            foreignKeyName: "checkins_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       checkin_messages: {
         Row: {
@@ -256,6 +288,22 @@ export interface Database {
           contains_safety_signal?: boolean;
           safety_signal_type?: SafetyFlagType | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "checkin_messages_checkin_id_fkey";
+            columns: ["checkin_id"];
+            isOneToOne: false;
+            referencedRelation: "checkins";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "checkin_messages_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       mood_entries: {
         Row: {
@@ -294,6 +342,22 @@ export interface Database {
           note?: string | null;
           sleep_hours?: number | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: "mood_entries_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "mood_entries_checkin_id_fkey";
+            columns: ["checkin_id"];
+            isOneToOne: false;
+            referencedRelation: "checkins";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       bookings: {
         Row: {
@@ -324,6 +388,11 @@ export interface Database {
           payment_status: string;
           created_at: string;
           updated_at: string;
+          proposed_start: string | null;
+          proposed_end: string | null;
+          proposed_by: string | null;
+          modification_note: string | null;
+          therapist_responded_at: string | null;
         };
         Insert: {
           id?: string;
@@ -353,6 +422,11 @@ export interface Database {
           payment_status?: string;
           created_at?: string;
           updated_at?: string;
+          proposed_start?: string | null;
+          proposed_end?: string | null;
+          proposed_by?: string | null;
+          modification_note?: string | null;
+          therapist_responded_at?: string | null;
         };
         Update: {
           scheduled_start?: string;
@@ -376,7 +450,35 @@ export interface Database {
           razorpay_payment_id?: string | null;
           payment_status?: string;
           updated_at?: string;
+          proposed_start?: string | null;
+          proposed_end?: string | null;
+          proposed_by?: string | null;
+          modification_note?: string | null;
+          therapist_responded_at?: string | null;
         };
+        Relationships: [           // ← replace Relationships: [] with this
+          {
+            foreignKeyName: "bookings_therapist_id_fkey";
+            columns: ["therapist_id"];
+            isOneToOne: false;
+            referencedRelation: "therapists";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bookings_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "bookings_checkin_id_fkey";
+            columns: ["checkin_id"];
+            isOneToOne: false;
+            referencedRelation: "checkins";
+            referencedColumns: ["id"];
+          }
+        ];
       };
     };
     Views: {
@@ -395,6 +497,7 @@ export interface Database {
       stressor_type: StressorType;
       coping_style_type: CopingStyleType;
     };
+    CompositeTypes: { [_ in never]: never }; 
   };
 }
 

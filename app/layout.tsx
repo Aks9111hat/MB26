@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/lib/auth/provider'
+import { Navbar } from '@/components/layout/Navbar';
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -34,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen antialiased">
         <AuthProvider>
+          <Navbar />
           {children}
           <Toaster
             position="top-right"

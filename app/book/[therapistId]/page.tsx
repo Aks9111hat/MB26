@@ -169,10 +169,16 @@ export default function BookingPage() {
     useEffect(() => {
         async function load() {
             const supabase = createClient();
-            const [{ data: { user } }, therapistRes] = await Promise.all([
+            const [{ data: { user } }, therapistRes, bookedRes] = await Promise.all([
                 supabase.auth.getUser(),
                 fetch(`/api/therapists/${therapistId}`),
+                fetch(`/api/therapists/${therapistId}/booked-slots`),
             ]);
+
+            if (bookedRes.ok) {
+                const bookedData = await bookedRes.json();
+                setBookedTimes(new Set(bookedData.bookedSlots as string[]));
+            }
 
             if (user) {
                 setUserEmail(user.email ?? '');
@@ -214,6 +220,7 @@ export default function BookingPage() {
     // }
 
     const availableDates = new Set<string>();
+    const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set());
     const today = new Date();
     for (let i = 0; i < 30; i++) {
         const d = new Date(today);
@@ -229,20 +236,19 @@ export default function BookingPage() {
         }
     }
 
-    // // Get time slots for selected date
-    // const timeSlotsForDate: string[] = (() => {
-    //     if (!selectedDate) return [];
-    //     const d = new Date(selectedDate);
-    //     const dayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-    //     return availabilitySlots[dayName] ?? [];
-    // })();
-    
+      
+    // Get time slots for selected date, filtering out already-booked times
     const timeSlotsForDate: string[] = (() => {
         if (!selectedDate) return [];
         const d = new Date(selectedDate + 'T00:00:00');
         const dayFull = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         const dayShort = d.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-        return availabilitySlots[dayFull] ?? availabilitySlots[dayShort] ?? [];
+        const allSlots: string[] = availabilitySlots[dayFull] ?? availabilitySlots[dayShort] ?? [];
+
+        return allSlots.filter((time) => {
+            const slotISO = new Date(`${selectedDate}T${time}:00+05:30`).toISOString();
+            return !bookedTimes.has(slotISO);
+        });
     })();
 
     const handleDateSelect = (date: string) => {
